@@ -3,7 +3,7 @@ import subprocess
 import sys
 import requests
 
-z_url = "https://raw.githubusercontent.com/New-12/test-BLACK-F/test-z.py"  # Burayı GitHub repo linkine göre güncelle
+z_url = "https://raw.githubusercontent.com/New-12/test-BLACK-F/main/test-z.py"  # Burayı GitHub repo linkine göre güncelle
 
 # 1. pip modülleri kontrol & yükle
 try:
