@@ -1,44 +1,75 @@
-from flask import Flask, request, jsonify
-import hashlib
-import json
 import os
+import json
+import hashlib
 
-app = Flask(__name__)
-USER_FILE = "users.json"
+DATA_FILE = "users.json"
 
-def load_users():
-    if not os.path.exists(USER_FILE):
-        return {}
-    with open(USER_FILE, "r") as f:
-        return json.load(f)
-
-def save_users(users):
-    with open(USER_FILE, "w") as f:
-        json.dump(users, f)
-
+# Şifreyi SHA256 ile hashle
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
-@app.route("/login", methods=["POST"])
-def login():
-    data = request.get_json()
-    users = load_users()
-    username = data["username"]
-    password = hash_password(data["password"])
-    if users.get(username) == password:
-        return jsonify({"status": "success"})
-    return jsonify({"status": "fail"}), 401
+# Kullanıcıları yükle
+def load_users():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return {}
+    return {}
 
-@app.route("/register", methods=["POST"])
+# Kullanıcıları kaydet
+def save_users(users):
+    with open(DATA_FILE, "w", encoding="utf-8") as f:
+        json.dump(users, f, indent=4)
+
+# Kayıt olma
 def register():
-    data = request.get_json()
     users = load_users()
-    username = data["username"]
+    username = input("Yeni kullanıcı adı: ").strip()
     if username in users:
-        return jsonify({"status": "exists"}), 409
-    users[username] = hash_password(data["password"])
+        print("❌ Bu kullanıcı zaten kayıtlı.")
+        return
+    password = input("Yeni şifre: ").strip()
+    users[username] = hash_password(password)
     save_users(users)
-    return jsonify({"status": "registered"})
+    print("✅ Kayıt başarıyla tamamlandı.")
+
+# Giriş yapma
+def login():
+    users = load_users()
+    username = input("Kullanıcı adınız: ").strip()
+    password = input("Şifreniz: ").strip()
+    if username in users and users[username] == hash_password(password):
+        print(f"✅ Giriş başarılı. Hoş geldin, {username}!")
+        return username
+    else:
+        print("❌ Hatalı kullanıcı adı veya şifre.")
+        return None
+
+# Ana menü
+def main():
+    while True:
+        print("\n=== BLACK-F SİSTEMİ ===")
+        print("1 - Giriş Yap")
+        print("2 - Kayıt Ol")
+        print("3 - Çıkış")
+
+        choice = input("Seçim yap: ").strip()
+
+        if choice == "1":
+            user = login()
+            if user:
+                # Giriş başarılıysa burada sistemin ana fonksiyonu çağrılabilir
+                print(f"🔐 {user} sistemde aktif!")
+                break
+        elif choice == "2":
+            register()
+        elif choice == "3":
+            print("👋 Görüşmek üzere.")
+            break
+        else:
+            print("⚠️ Geçersiz seçim. Tekrar dene.")
 
 if __name__ == "__main__":
-    app.run(port=8080)
+    main()
