@@ -57,6 +57,11 @@ def send():
 @app.route("/messages", methods=["GET"])
 def messages():
     return jsonify(load_json(MESSAGES_FILE)), 200
+    
+@app.route("/test")
+def test():
+    return "Sunucu aktif"
+
 
 if __name__ == "__main__":
     app.run(debug=True)
