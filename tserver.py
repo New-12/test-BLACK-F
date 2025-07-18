@@ -1,44 +1,62 @@
 from flask import Flask, request, jsonify
-import hashlib
-import json
 import os
+import json
 
 app = Flask(__name__)
-USER_FILE = "users.json"
 
-def load_users():
-    if not os.path.exists(USER_FILE):
-        return {}
-    with open(USER_FILE, "r") as f:
+USERS_FILE = "users.json"
+MESSAGES_FILE = "messages.json"
+
+def load_json(file):
+    if not os.path.exists(file):
+        with open(file, "w") as f:
+            json.dump([], f)
+    with open(file, "r") as f:
         return json.load(f)
 
-def save_users(users):
-    with open(USER_FILE, "w") as f:
-        json.dump(users, f)
-
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-@app.route("/login", methods=["POST"])
-def login():
-    data = request.get_json()
-    users = load_users()
-    username = data["username"]
-    password = hash_password(data["password"])
-    if users.get(username) == password:
-        return jsonify({"status": "success"})
-    return jsonify({"status": "fail"}), 401
+def save_json(file, data):
+    with open(file, "w") as f:
+        json.dump(data, f, indent=4)
 
 @app.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
-    users = load_users()
-    username = data["username"]
-    if username in users:
-        return jsonify({"status": "exists"}), 409
-    users[username] = hash_password(data["password"])
-    save_users(users)
-    return jsonify({"status": "registered"})
+    username = data.get("username")
+    password = data.get("password")
+
+    users = load_json(USERS_FILE)
+    if any(u["username"] == username for u in users):
+        return jsonify({"error": "Kullanıcı zaten var."}), 400
+
+    users.append({"username": username, "password": password})
+    save_json(USERS_FILE, users)
+    return jsonify({"message": "Kayıt başarılı."}), 200
+
+@app.route("/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    username = data.get("username")
+    password = data.get("password")
+
+    users = load_json(USERS_FILE)
+    if any(u["username"] == username and u["password"] == password for u in users):
+        return jsonify({"message": "Giriş başarılı."}), 200
+    return jsonify({"error": "Geçersiz kullanıcı adı veya şifre."}), 401
+
+@app.route("/send", methods=["POST"])
+def send():
+    data = request.get_json()
+    username = data.get("username")
+    message = data.get("message")
+
+    messages = load_json(MESSAGES_FILE)
+    messages.append({"username": username, "message": message})
+    save_json(MESSAGES_FILE, messages)
+    return jsonify({"message": "Mesaj kaydedildi."}), 200
+
+@app.route("/messages", methods=["GET"])
+def messages():
+    return jsonify(load_json(MESSAGES_FILE)), 200
 
 if __name__ == "__main__":
-    app.run(port=8080)
+    app.run(debug=True)
