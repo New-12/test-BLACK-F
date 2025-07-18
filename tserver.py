@@ -21,8 +21,14 @@ def save_json(file, data):
 @app.route("/register", methods=["POST"])
 def register():
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+
     username = data.get("username")
     password = data.get("password")
+
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
 
     users = load_json(USERS_FILE)
     if any(u["username"] == username for u in users):
@@ -35,19 +41,32 @@ def register():
 @app.route("/login", methods=["POST"])
 def login():
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+
     username = data.get("username")
     password = data.get("password")
+
+    if not username or not password:
+        return jsonify({"error": "Missing username or password"}), 400
 
     users = load_json(USERS_FILE)
     if any(u["username"] == username and u["password"] == password for u in users):
         return jsonify({"message": "Giriş başarılı."}), 200
-    return jsonify({"error": "Geçersiz kullanıcı adı veya şifre."}), 401
+    else:
+        return jsonify({"error": "Geçersiz kullanıcı adı veya şifre."}), 401
 
 @app.route("/send", methods=["POST"])
 def send():
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid JSON"}), 400
+
     username = data.get("username")
     message = data.get("message")
+
+    if not username or not message:
+        return jsonify({"error": "Eksik bilgi"}), 400
 
     messages = load_json(MESSAGES_FILE)
     messages.append({"username": username, "message": message})
@@ -57,11 +76,6 @@ def send():
 @app.route("/messages", methods=["GET"])
 def messages():
     return jsonify(load_json(MESSAGES_FILE)), 200
-    
-@app.route("/test")
-def test():
-    return "Sunucu aktif"
-
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="127.0.0.1", port=5000)
