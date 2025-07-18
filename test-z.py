@@ -1,22 +1,14 @@
-import os
 import requests
 import json
-import getpass
-import platform
+import os
 import time
+import uuid
 
-SERVER_URL = "http://127.0.0.1:5000"
-USER_FILE = "user.json"
-
-def clear():
-    os.system("cls" if os.name == "nt" else "clear")
-
-def wait():
-    input("\nDevam etmek için enter...")
+URL = "http://127.0.0.1:5000"
+USER_FILE = "user_info.json"
 
 def generate_username():
-    system_info = platform.node().replace(" ", "_")
-    return f"blackf_{system_info.lower()}"
+    return f"user-{uuid.uuid4().hex[:6]}"
 
 def load_user():
     if os.path.exists(USER_FILE):
@@ -24,63 +16,60 @@ def load_user():
             return json.load(f)
     return None
 
-def save_user(data):
+def save_user(user):
     with open(USER_FILE, "w") as f:
-        json.dump(data, f)
+        json.dump(user, f)
 
-def register_user():
-    username = generate_username()
-    print(f"[*] Otomatik kullanıcı adınız: {username}")
-    password = getpass.getpass("[?] Şifre oluştur: ")
-
-    r = requests.post(SERVER_URL + "/register", json={"username": username, "password": password})
-    if r.status_code == 200:
-        print("[+] Kayıt başarılı.")
-        save_user({"username": username, "password": password})
-        return True
-    else:
-        print("[-] Kayıt başarısız:", r.text)
+def register(user):
+    try:
+        response = requests.post(f"{URL}/register", json=user)
+        return response.status_code == 200
+    except Exception as e:
+        print("[-] Kayıt başarısız:", e)
         return False
 
-def login_user():
-    user = load_user()
-    if not user:
-        print("[!] Kullanıcı bulunamadı. Önce kayıt olmalısınız.")
+def login(user):
+    try:
+        response = requests.post(f"{URL}/login", json=user)
+        return response.status_code == 200
+    except Exception as e:
+        print("[-] Giriş başarısız:", e)
         return False
 
-    r = requests.post(SERVER_URL + "/login", json=user)
-    if r.status_code == 200:
-        print("[+] Giriş başarılı.")
-        return True
-    else:
-        print("[-] Giriş başarısız.")
+def send_message(user, msg):
+    try:
+        data = {
+            "username": user["username"],
+            "password": user["password"],
+            "message": msg
+        }
+        response = requests.post(f"{URL}/send", json=data)
+        return response.status_code == 200
+    except Exception as e:
+        print("[-] Mesaj gönderilemedi:", e)
         return False
 
-def send_message():
-    user = load_user()
-    if not user:
-        print("[!] Giriş yapılmadı.")
-        return
+def get_messages(user):
+    try:
+        data = {
+            "username": user["username"],
+            "password": user["password"]
+        }
+        response = requests.post(f"{URL}/messages", json=data)
+        if response.status_code == 200:
+            return response.json().get("messages", [])
+        else:
+            print("[-] Sunucu mesajları vermedi.")
+    except Exception as e:
+        print("[-] Mesajlar alınamadı:", e)
+    return []
 
-    msg = input("Mesajınızı yazın: ")
-    r = requests.post(SERVER_URL + "/send", json={"username": user["username"], "message": msg})
-    if r.status_code == 200:
-        print("[+] Mesaj gönderildi.")
-    else:
-        print("[-] Mesaj gönderilemedi:", r.text)
+def wait():
+    input("\nDevam etmek için enter...")
 
-def get_messages():
-    r = requests.get(SERVER_URL + "/messages")
-    if r.status_code == 200:
-        print("\n--- Gelen Mesajlar ---")
-        for msg in r.json():
-            print(f"{msg['username']} > {msg['message']}")
-    else:
-        print("[-] Mesajlar alınamadı:", r.text)
-
-def main_menu():
+def main_menu(user):
     while True:
-        clear()
+        os.system("cls" if os.name == "nt" else "clear")
         print("== BLACK-F | k ==")
         print("1. Mesaj Gönder")
         print("2. Mesajları Gör")
@@ -88,34 +77,46 @@ def main_menu():
         choice = input("> ")
 
         if choice == "1":
-            send_message()
+            msg = input("Mesajınız: ")
+            if send_message(user, msg):
+                print("[+] Mesaj gönderildi.")
+            else:
+                print("[-] Mesaj gönderilemedi.")
+            wait()
+
         elif choice == "2":
-            get_messages()
+            messages = get_messages(user)
+            print("\n== Gelen Mesajlar ==")
+            if messages:
+                for m in messages:
+                    print(f"- {m}")
+            else:
+                print("[!] Hiç mesaj yok.")
+            wait()
+
         elif choice == "3":
-            print("[*] Çıkılıyor...")
+            print("Çıkılıyor...")
             break
-        else:
-            print("[!] Geçersiz seçim.")
 
-        wait()
-
-def main():
-    clear()
-    print("== BLACK-F Giriş Sistemi ==\n")
-
-    user = load_user()
-    if user:
-        print("[*] Kayıtlı kullanıcı bulundu:", user["username"])
-        if login_user():
-            main_menu()
         else:
-            print("[!] Oturum açılamadı.")
-    else:
-        print("[!] Yeni kullanıcı kaydı başlatılıyor...")
-        if register_user():
-            main_menu()
-        else:
-            print("[!] Kayıt başarısız.")
+            print("Geçersiz seçim.")
+            wait()
 
 if __name__ == "__main__":
-    main()
+    user = load_user()
+    if not user:
+        # İlk kez çalıştırılıyorsa kullanıcı oluştur
+        username = generate_username()
+        password = uuid.uuid4().hex[:8]
+        user = {"username": username, "password": password}
+        if register(user):
+            save_user(user)
+            print(f"[+] Yeni kullanıcı kaydedildi: {username}")
+        else:
+            print("[-] Kayıt başarısız.")
+            exit()
+
+    if login(user):
+        main_menu(user)
+    else:
+        print("[-] Giriş başarısız. Kayıtlı bilgileri silmek için 'user_info.json' dosyasını silin.")
